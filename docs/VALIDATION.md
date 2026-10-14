@@ -1,4 +1,18 @@
-# Static review results
+# Static review and Xcode build results
+
+## Completed GitHub Actions simulator build
+
+- Workflow: [iOS Simulator Build](https://github.com/hubianron-cpu/focus-and-drive-ios/actions/workflows/ios-build.yml).
+- Actual run: [38645026287, attempt 1](https://github.com/hubianron-cpu/focus-and-drive-ios/actions/runs/38645026287), triggered by the feature-branch push. Final status: **SUCCESS**; total duration reported by GitHub: 57 seconds.
+- Built commit: `afc48ea8bb229df86c48c35d22f157922d117e87` on `feature/focus-drive-static-qa`. Subsequent documentation-only updates do not change the compiled app or workflow and are excluded by the push path filter.
+- GitHub-hosted `macos-15` runner; installed **Xcode 16.4** selected with `DEVELOPER_DIR`. The toolchain step explicitly checks this version and records Xcode, Swift compiler and SDK versions in `toolchain.log`. The project uses Swift 5 language mode and iOS 16 deployment target.
+- `xcodebuild` compiled the existing FocusDrive scheme in Debug for `generic/platform=iOS Simulator`, using `-sdk iphonesimulator`, `CODE_SIGNING_ALLOWED=NO` and `CODE_SIGNING_REQUIRED=NO`. Its exit status is preserved through `tee` using `pipefail`.
+- **PASS:** project/scheme inspection, Swift compilation and linking (including SwiftUI, FamilyControls and ManagedSettings references), simulator executable existence, generated Info.plist with the `iPhoneSimulator` supported platform, and the bundled privacy manifest with UserDefaults reason `CA92.1`.
+- **Tests: NOT RUN.** No XCTest target or scheme TestAction exists; no substitute tests were created.
+- Artifact upload: **SUCCESS**. `ios-simulator-build-38645026287-1` contains toolchain, project, static validation, build and output logs, an Xcode result bundle and a summary. Retention is seven days. GitHub reported 22.3 KB and SHA-256 `4b2787fe8df85c752a5874820b4b1e2ff24a497babdb92097a0d766b3be2288c` for the uploaded artifact.
+- Run completion and all job-step conclusions were checked on GitHub's public run/job pages. The cloud proxy blocked the REST API and GitHub requires sign-in for full log viewing/downloads; raw runner logs were not independently downloaded into this cloud machine. The successful workflow and output-check conclusions are the compilation evidence.
+- No Swift source, application behavior, entitlement or Xcode project changes were needed for this build. Added the workflow and documentation only. Workflow YAML, embedded Bash syntax and actionlint validation passed before the push. Action references are pinned to full commit SHAs, permissions are `contents: read`, checkout credentials are not retained, and no signing credentials are used.
+- GitHub emitted an action-runtime deprecation warning for the pinned v4 actions (automatically run with Node 24) and a macOS runner-capacity notice. Neither prevented this run; no billing or runner-setting changes were made.
 
 ## Completed in cloud
 
@@ -22,7 +36,7 @@
 
 ## Not completed
 
-Linux has neither Xcode nor the Apple SDK. Swift parsing/type checking against Apple SDKs, compilation, signing, simulator launch, physical-iPhone launch, authorization, WhatsApp shielding, shield removal, and all functional lifecycle QA remain **NOT RUN / UNVERIFIED**. Project parsing and source review are not substitutes for compilation or device tests. There is no automated XCTest suite.
+The Linux cloud machine has neither Xcode nor the Apple SDK. Actual simulator compilation was completed on GitHub's macOS runner as recorded above. Physical-device compilation/signing, simulator launch, physical-iPhone launch, authorization, WhatsApp shielding, shield removal, and all functional lifecycle QA remain **NOT RUN / UNVERIFIED**. Simulator compilation does not validate runtime behavior or entitlement approval. There is no automated XCTest suite.
 
 ## Remaining limitations and next gate
 

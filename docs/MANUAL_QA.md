@@ -2,6 +2,8 @@
 
 All functional cases below are **NOT RUN**. Record tester/date, hardware, iOS version, Xcode version, team/profile, commit or source snapshot, expected result, observed result, and PASS/FAIL per case. Test stationary and safely parked. Do not drive while testing. Any failed required case blocks acceptance of the corresponding behavior.
 
+Unsigned simulator compilation passed in [GitHub Actions run 38645026287](https://github.com/hubianron-cpu/focus-and-drive-ios/actions/runs/38645026287) using Xcode 16.4. That run did not launch the app or complete the device build/sign/install case below. See [the exact build scope and commit](VALIDATION.md).
+
 | Case | Steps and expected result |
 | --- | --- |
 | Build/sign/install | Open shared scheme, build with Apple SDK, sign with Family Controls profile, install on iOS 16+ physical iPhone. App launches without crash. Confirm `PrivacyInfo.xcprivacy` is present in the built app bundle. A generic app icon is expected for this development MVP. |

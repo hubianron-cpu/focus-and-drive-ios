@@ -2,7 +2,7 @@
 
 Minimal, Hebrew/RTL SwiftUI iPhone MVP. The driver grants individual Screen Time authorization, selects WhatsApp in Apple's picker, then manually starts and ends Driving Mode while safely parked. No backend, accounts, analytics, subscriptions, location, motion tracking, notifications, or third-party dependencies.
 
-**Status:** source and Xcode project prepared in Linux. Not compiled with Apple's SDK, signed, installed, or tested on an iPhone. Actual WhatsApp blocking is **UNVERIFIED**, not PASS. See [feasibility](docs/FEASIBILITY.md) and [manual QA](docs/MANUAL_QA.md).
+**Status:** the existing app compiled successfully for iOS Simulator using Xcode 16.4 on GitHub Actions at commit `afc48ea8bb229df86c48c35d22f157922d117e87` ([successful run 38645026287](https://github.com/hubianron-cpu/focus-and-drive-ios/actions/runs/38645026287)). The simulator executable and bundled privacy manifest checks passed. No app launch, tests, device signing, installation, or iPhone runtime validation was performed. Actual WhatsApp blocking is **UNVERIFIED**, not PASS. See [build evidence](docs/VALIDATION.md), [feasibility](docs/FEASIBILITY.md) and [manual QA](docs/MANUAL_QA.md).
 
 ## Open and install on a friend's Mac
 
