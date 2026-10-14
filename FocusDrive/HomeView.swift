@@ -17,11 +17,11 @@ struct HomeView: View {
                 Text("פחות הסחות דעת. יותר תשומת לב לדרך.")
                     .foregroundStyle(.secondary)
                 VStack(alignment: .leading, spacing: 14) {
-                    Label(model.isDriving ? "מצב נהיגה פעיל" : "מצב נהיגה לא פעיל",
+                    Label(model.statusTitle,
                           systemImage: model.isDriving ? "car.fill" : "car")
                         .font(.title2.weight(.medium))
                         .foregroundStyle(model.isDriving ? Color.green : Color.primary)
-                    Text(model.isDriving ? "הגבלות היישומים שנבחרו מופעלות כל עוד הרשאת זמן המסך תקפה." : "הפעילו את מצב הנהיגה לפני תחילת הנסיעה.")
+                    Text(model.statusDetail)
                         .foregroundStyle(.secondary)
                     Button {
                         if model.isDriving { model.endDriving() } else { model.startDriving() }

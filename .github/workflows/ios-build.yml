@@ -7,6 +7,8 @@ on:
       - '.github/workflows/ios-build.yml'
       - 'FocusDrive/**'
       - 'FocusDrive.xcodeproj/**'
+      - 'Package.swift'
+      - 'Tests/**'
       - 'scripts/validate_project.py'
   workflow_dispatch:
 
@@ -19,7 +21,7 @@ concurrency:
 
 jobs:
   simulator-build:
-    name: Compile and inspect simulator app (Xcode 16.4)
+    name: Build simulator app and test state coordination (Xcode 16.4)
     runs-on: macos-15
     timeout-minutes: 20
     env:
@@ -97,11 +99,36 @@ jobs:
           PY
           } 2>&1 | tee "$CI_LOG_DIR/build-output.log"
 
+      - name: Run production coordinator XCTest suite on macOS
+        id: tests
+        run: |
+          set -euo pipefail
+          xcrun swift test --jobs 2 --xunit-output "$CI_LOG_DIR/unit-tests.xml" \
+            2>&1 | tee "$CI_LOG_DIR/unit-tests.log"
+          python3 - "$CI_LOG_DIR" <<'PYTEST'
+          from pathlib import Path
+          import sys
+          import re
+          import xml.etree.ElementTree as ET
+          directory = Path(sys.argv[1])
+          cases = list(ET.parse(directory / 'unit-tests.xml').getroot().iter('testcase'))
+          failures = sum(len(c.findall('failure')) + len(c.findall('error')) for c in cases)
+          skipped = sum(len(c.findall('skipped')) for c in cases)
+          result = f'XCTest: {len(cases)} executed, {failures} failures/errors, {skipped} skipped.'
+          (directory / 'test-results.txt').write_text(result + '\n')
+          print(result)
+          print(f'::notice title=Coordinator XCTest::{result}')
+          expected = sum(len(re.findall(r'func test\w+\(', p.read_text()))
+                         for p in Path('Tests').rglob('*.swift'))
+          assert len(cases) == expected > 0 and failures == 0 and skipped == 0, 'All declared tests must execute and pass.'
+          PYTEST
+
       - name: Report compilation and test availability
         if: always()
         env:
           BUILD_OUTCOME: ${{ steps.build.outcome }}
           OUTPUT_OUTCOME: ${{ steps.output.outcome }}
+          TEST_OUTCOME: ${{ steps.tests.outcome }}
         run: |
           set -euo pipefail
           mkdir -p "$CI_LOG_DIR"
@@ -110,8 +137,12 @@ jobs:
             echo "- xcodebuild step: $BUILD_OUTCOME"
             echo "- Simulator output/resource inspection: $OUTPUT_OUTCOME"
             echo '- Swift language mode: 5.0; minimum deployment target: iOS 16.0.'
-            echo '- Tests: NOT RUN. This project has no XCTest targets or scheme TestAction.'
-            echo '- No simulator launch, Screen Time authorization or physical-iPhone blocking test was performed.'
+            echo "- Coordinator XCTest step: $TEST_OUTCOME"
+            if test -f "$CI_LOG_DIR/test-results.txt"; then
+              cat "$CI_LOG_DIR/test-results.txt"
+            fi
+            echo '- XCTest uses the production coordinator and mock services on macOS; it does not exercise Apple shielding.'
+            echo '- No iPhone app launch, Screen Time authorization or physical-iPhone blocking test was performed.'
             echo '- An unsigned simulator build does not validate device signing or entitlement approval.'
             if test -f "$CI_LOG_DIR/toolchain.log"; then
               echo '### Actual runner toolchain'
@@ -120,6 +151,22 @@ jobs:
               echo '```'
             fi
           } | tee "$CI_LOG_DIR/summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Expose compiler and test diagnostics on failure
+        if: failure()
+        run: |
+          python3 - "$CI_LOG_DIR" <<'PYDIAG'
+          from pathlib import Path
+          import sys
+          for name in ('xcodebuild.log', 'unit-tests.log'):
+              path = Path(sys.argv[1]) / name
+              if path.exists():
+                  errors = [line for line in path.read_text(errors='replace').splitlines()
+                            if 'error:' in line or 'failed' in line.lower()]
+                  for line in errors[-15:]:
+                      safe = line.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+                      print(f'::error title={name}::{safe}')
+          PYDIAG
 
       - name: Upload build logs and Xcode result bundle
         if: always()

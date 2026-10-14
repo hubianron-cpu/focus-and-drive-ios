@@ -12,15 +12,16 @@ Unsigned simulator compilation passed in [GitHub Actions run 38645026287](https:
 | Authorization approval | Approve individual access. Picker action appears; no parent/child flow required. |
 | Selection | Install WhatsApp and Waze. Pick WhatsApp only. Selected count is correct; Start enables. No bundle-ID lookup is assumed. |
 | Empty/invalid selection | Deselect all, or select category/website. Start stays disabled and explanation appears. Picker can be reopened to correct selection. |
+| Existing-install migration | Upgrade an existing v1 install with selected WhatsApp and repeat with a requested session. Confirm the v2 snapshot restores selection/intent, while unauthorized or corrupt saved data does not resume. |
 | Selection persistence | Select WhatsApp, dismiss the picker, terminate/relaunch while inactive. Authorized selection is restored and Start enables. |
 | Selection limit | If enough apps are available, select more than 50 applications: Start stays disabled. Reduce to 50 or fewer to enable it. Record NOT RUN with reason if the device has too few apps. |
 | Picker dismissal | Dismiss/reopen, verify final system selection persists. Cancel semantics should match the system picker. |
-| Start and actual blocking | Start. Status becomes active. Leave app and open WhatsApp: system shield is shown. **Do not mark PASS from the status label alone.** |
+| Start and actual blocking | Start. Status says a restriction request was sent, with an explicit enforcement limitation. Leave app and open WhatsApp: system shield is shown. **Do not mark PASS from the status label alone.** |
 | Waze/Phone available | With only WhatsApp selected, open Waze and start a stationary navigation preview. Use a normal test contact to check supported Bluetooth/CarPlay hands-free calls. Never test by calling emergency services. |
 | End and restoration | End. Status inactive. Open WhatsApp and verify access restored when no other control blocks it. Waze/Phone remain available. |
 | Multiple cycles | Repeat Start/End several times. No stuck shields, stale state, or extra prompts. Selection cannot be changed while active. |
-| Background/lock | Start, background app and lock/unlock phone. WhatsApp remains shielded, return to app shows active. |
-| Force quit/relaunch | Start, force quit, test WhatsApp, relaunch. Record both enforcement and restored state. End removes own shield. |
+| Background/lock | Start, background app and lock/unlock phone. WhatsApp remains shielded, return to app shows the requested-session state. |
+| Force quit/relaunch | Start, force quit, test WhatsApp, relaunch. Record both enforcement and restored requested-session state. End removes own shield. |
 | Reboot | Start, reboot, test WhatsApp before reopening app, reopen and End. Record OS-specific enforcement, persistence and recovery. |
 | Revocation inactive | Revoke authorization in iOS Settings. Return to app: inactive, Start disabled; explicit authorization retry works if allowed. |
 | Revocation active | Start, revoke while app backgrounded, return. Active state is cleared and missing authorization explained. Check actual OS removal behavior. |
@@ -34,4 +35,4 @@ Unsigned simulator compilation passed in [GitHub Actions run 38645026287](https:
 
 If shielding remains unexpectedly, reopen Focus & Drive and End Driving. Inspect other Screen Time restrictions separately. If access was revoked, use iOS Settings to manage that permission. Do not claim Focus & Drive can remove settings belonging to other apps or system policies.
 
-Acceptance requires successful device shielding and removal plus the required authorization, lifecycle and safety cases. The current cloud result validates none of these functional cases. File defects with exact steps, OS version and screenshots that omit private app selections where possible.
+Acceptance requires successful device shielding and removal plus the required authorization, lifecycle and safety cases. Coordinator unit tests validate state/store calls with mocks, and simulator builds validate compilation. Neither validates these physical-device cases. Run [the dedicated WhatsApp scenario](WHATSAPP_DEVICE_TEST.md) before accepting blocking. File defects with exact steps, OS version and screenshots that omit private app selections where possible.

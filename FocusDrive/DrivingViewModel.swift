@@ -1,6 +1,5 @@
 import SwiftUI
 import FamilyControls
-import ManagedSettings
 import Combine
 
 @MainActor
@@ -8,120 +7,88 @@ final class DrivingViewModel: ObservableObject {
     @Published private(set) var isDriving = false
     @Published private(set) var authorization: AuthorizationStatus = .notDetermined
     @Published private(set) var isRequesting = false
-    @Published var message: String?
+    @Published private(set) var message: String?
     @Published private(set) var selection = FamilyActivitySelection()
+    @Published private(set) var phase: SessionPhase = .inactive
 
-    private let store = ManagedSettingsStore(named: .init("FocusDrive.driving"))
-    private let defaults = UserDefaults.standard
-    private let selectionKey = "FocusDrive.selection.v1"
-    private let activeKey = "FocusDrive.active.v1"
+    private let session: DrivingSession<FamilyActivitySelection>
     private var authorizationObserver: AnyCancellable?
 
     init() {
-        if let data = defaults.data(forKey: selectionKey) {
-            do {
-                selection = try JSONDecoder().decode(FamilyActivitySelection.self, from: data)
-            } catch {
-                message = "לא ניתן לשחזר את הבחירה. יש לבחור יישומים מחדש כשחונים בבטחה."
-                defaults.removeObject(forKey: selectionKey)
-                defaults.set(false, forKey: activeKey)
-            }
-        }
-        isDriving = defaults.bool(forKey: activeKey)
-        reconcile()
+        let shield = DrivingShieldStore()
+        session = DrivingSession(
+            authorization: ScreenTimeAuthorization(),
+            persistence: UserDefaultsSessionPersistence(),
+            isValid: Self.isValid,
+            applyShield: { shield.apply($0) },
+            clearShield: { shield.clear() }
+        )
+        refresh()
         authorizationObserver = AuthorizationCenter.shared.$authorizationStatus
             .receive(on: DispatchQueue.main)
             .sink { [weak self] status in
                 Task { @MainActor [weak self] in
-                    // Revocation voids existing tokens. Process the emitted status even if
-                    // another authorization change occurs before this task executes.
-                    if status != .approved { self?.invalidateSelection() }
-                    self?.reconcile()
+                    guard let self else { return }
+                    if status != .approved { self.session.authorizationWasLost() }
+                    self.reconcile()
                 }
             }
     }
 
-    var hasValidSelection: Bool {
+    private static func isValid(_ selection: FamilyActivitySelection) -> Bool {
         !selection.applicationTokens.isEmpty && selection.applicationTokens.count <= 50
-            && selection.categoryTokens.isEmpty
-            && selection.webDomainTokens.isEmpty
+            && selection.categoryTokens.isEmpty && selection.webDomainTokens.isEmpty
+    }
+
+    var hasValidSelection: Bool { session.hasValidSelection }
+
+    var statusTitle: String {
+        switch phase {
+        case .inactive: return "מצב נהיגה לא פעיל"
+        case .requested: return "מצב נהיגה: בקשת הגבלה נשלחה"
+        case .cleanupRequired: return "נדרשת הסרת הגבלה מחדש"
+        }
+    }
+
+    var statusDetail: String {
+        switch phase {
+        case .inactive: return "הפעילו את מצב הנהיגה לפני תחילת הנסיעה."
+        case .requested: return "נשלחה בקשה להגבלת היישומים שנבחרו. אין אישור מהמערכת שהחסימה נאכפת."
+        case .cleanupRequired: return "לא ניתן לאשר את הסרת הבקשה. נסו לסיים שוב רק כשחונים בבטחה."
+        }
     }
 
     func requestAuthorization() async {
         guard !isRequesting else { return }
         isRequesting = true
-        defer { isRequesting = false }
-        do {
-            try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
-            message = nil
-        } catch {
-            message = "ההרשאה לא ניתנה. לא ניתן להפעיל הגבלות ללא הרשאת זמן מסך. ניתן לבדוק את ההרשאה בהגדרות."
-        }
-        reconcile()
+        await session.authorize()
+        isRequesting = false
+        refresh()
     }
 
     func saveSelection(_ proposedSelection: FamilyActivitySelection) {
-        guard !isDriving, AuthorizationCenter.shared.authorizationStatus == .approved else {
-            reconcile()
-            return
-        }
-        do {
-            let data = try JSONEncoder().encode(proposedSelection)
-            defaults.set(data, forKey: selectionKey)
-            selection = proposedSelection
-            message = hasValidSelection ? nil : "יש לבחור בין יישום אחד ל־50 יישומים בלבד, למשל WhatsApp. אין לבחור קטגוריות, אתרים, Waze או טלפון."
-        } catch {
-            invalidateSelection()
-            message = "שמירת הבחירה נכשלה. יש לבחור שוב לפני תחילת הנסיעה."
-        }
+        session.select(proposedSelection)
+        refresh()
     }
 
-    func startDriving() {
-        reconcile()
-        guard authorization == .approved, hasValidSelection else {
-            message = "נדרשים אישור זמן מסך ובחירת יישומים לפני תחילת הנסיעה."
-            return
-        }
-        // Settings setters have no enforcement acknowledgement. Device QA is required.
-        store.shield.applications = selection.applicationTokens
-        defaults.set(true, forKey: activeKey)
-        isDriving = true
-        message = nil
-    }
+    func startDriving() { session.start(); refresh() }
+    func endDriving() { session.end(); refresh() }
+    func reconcile() { session.reconcile(); refresh() }
 
-    func endDriving() {
-        // Clear this app's named store only; other Screen Time stores remain untouched.
-        store.clearAllSettings()
-        defaults.set(false, forKey: activeKey)
-        isDriving = false
-        message = nil
-    }
-
-    private func invalidateSelection() {
-        selection = FamilyActivitySelection()
-        defaults.removeObject(forKey: selectionKey)
-    }
-
-    func reconcile() {
+    private func refresh() {
         authorization = AuthorizationCenter.shared.authorizationStatus
-        guard authorization == .approved else {
-            let wasDriving = isDriving
-            invalidateSelection()
-            store.clearAllSettings()
-            defaults.set(false, forKey: activeKey)
-            isDriving = false
-            if wasDriving { message = "הרשאת זמן המסך אינה זמינה. מצב הנהיגה הופסק. יש לבדוק הרשאות כשחונים בבטחה." }
-            return
-        }
-        if isDriving {
-            guard hasValidSelection else {
-                endDriving()
-                message = "הבחירה אינה זמינה. יש לבחור יישומים מחדש כשחונים בבטחה."
-                return
-            }
-            store.shield.applications = selection.applicationTokens
-        } else {
-            store.clearAllSettings()
+        phase = session.phase
+        isDriving = phase != .inactive
+        selection = session.selection ?? FamilyActivitySelection()
+        switch session.issue {
+        case nil: message = nil
+        case .authorizationRequired: message = "נדרשת הרשאת זמן מסך ובחירה חדשה של יישומים כשחונים בבטחה."
+        case .authorizationFailed: message = "ההרשאה לא ניתנה. לא ניתן לבקש הגבלות ללא הרשאת זמן מסך. בדקו את ההרשאה בהגדרות כשחונים בבטחה."
+        case .invalidSelection: message = "יש לבחור בין יישום אחד ל־50 יישומים בלבד, ללא קטגוריות או אתרים."
+        case .persistenceFailed: message = "שמירת מצב הנהיגה נכשלה. יש לבדוק את הבחירה מחדש כשחונים בבטחה."
+        case .restorationFailed: message = "לא ניתן לשחזר את המצב. שחזור הנהיגה בוטל ונשלחה בקשת הסרה. יש לבחור יישומים מחדש."
+        case .restrictionRequestFailed: message = "בקשת ההגבלה נכשלה. מצב הנהיגה לא הופעל."
+        case .cleanupFailed: message = "הסרת בקשת ההגבלה נכשלה. נסו לסיים שוב כשחונים בבטחה."
         }
     }
 }

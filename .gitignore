@@ -4,3 +4,5 @@ DerivedData/
 xcuserdata/
 *.ipa
 *.xcarchive
+.build/
+.swiftpm/

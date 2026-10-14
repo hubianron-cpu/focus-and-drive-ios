@@ -1,6 +1,6 @@
 # Static review and Xcode build results
 
-## Completed GitHub Actions simulator build
+## Baseline GitHub Actions simulator build (before coordinator changes)
 
 - Workflow: [iOS Simulator Build](https://github.com/hubianron-cpu/focus-and-drive-ios/actions/workflows/ios-build.yml).
 - Actual run: [38645026287, attempt 1](https://github.com/hubianron-cpu/focus-and-drive-ios/actions/runs/38645026287), triggered by the feature-branch push. Final status: **SUCCESS**; total duration reported by GitHub: 57 seconds.
@@ -36,7 +36,7 @@
 
 ## Not completed
 
-The Linux cloud machine has neither Xcode nor the Apple SDK. Actual simulator compilation was completed on GitHub's macOS runner as recorded above. Physical-device compilation/signing, simulator launch, physical-iPhone launch, authorization, WhatsApp shielding, shield removal, and all functional lifecycle QA remain **NOT RUN / UNVERIFIED**. Simulator compilation does not validate runtime behavior or entitlement approval. There is no automated XCTest suite.
+The Linux cloud machine has neither Xcode nor the Apple SDK. Actual simulator compilation was completed on GitHub's macOS runner as recorded above. Physical-device compilation/signing, simulator launch, physical-iPhone launch, authorization, WhatsApp shielding, shield removal, and all functional lifecycle QA remain **NOT RUN / UNVERIFIED**. Simulator compilation does not validate runtime behavior or entitlement approval. The updated app now shares its coordinator with a macOS SwiftPM XCTest suite; see the follow-up CI result when recorded below.
 
 ## Remaining limitations and next gate
 
@@ -46,3 +46,8 @@ The Linux cloud machine has neither Xcode nor the Apple SDK. Actual simulator co
 - The app uses the system shield, without extensions. It does not enforce a system-wide Waze-only mode or guarantee navigation/call routing.
 - No custom app icon is included. It does not block a development-device test, but must be supplied before App Store submission. Distribution separately requires Apple Family Controls approval.
 - This follow-up was authorized to commit and push a feature branch only. No merge, environment publication or deployment was performed. Consult the reported Git SHA/branch for the exact reviewed snapshot.
+
+
+## Blocking coordination follow-up
+
+Implementation findings before edits are in BLOCKING_REVIEW.md. The updated coordinator has 25 XCTest cases covering valid/invalid Start, End, revocation/rapid reapproval, selection persistence, restart/reconciliation, authorization errors, encoding/load/save failures, partial-apply rollback and cleanup retries. These tests use mock services with the same production coordinator; they are not evidence of Apple shielding. The workflow retains real simulator compilation and output checks and now runs XCTest on macOS, preserves test exit status, uploads JUnit/logs, and rejects missing, skipped, failing or zero-test execution. Follow-up compilation/tests are pending an actual Actions run. Entitlement declarations remain unchanged; physical-device provisioning and enforcement remain NOT TESTED.
