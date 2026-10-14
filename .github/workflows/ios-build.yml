@@ -103,9 +103,9 @@ jobs:
         id: tests
         run: |
           set -euo pipefail
-          xcrun swift test --jobs 2 --xunit-output "$CI_LOG_DIR/unit-tests.xml" \
+          xcrun swift test --jobs 2 --parallel --num-workers 2 --xunit-output "$CI_LOG_DIR/unit-tests.xml" \
             2>&1 | tee "$CI_LOG_DIR/unit-tests.log"
-          python3 - "$CI_LOG_DIR" <<'PYTEST'
+          python3 - "$CI_LOG_DIR" <<'PYTEST' 2>&1 | tee "$CI_LOG_DIR/test-report.log"
           from pathlib import Path
           import sys
           import re
@@ -158,11 +158,11 @@ jobs:
           python3 - "$CI_LOG_DIR" <<'PYDIAG'
           from pathlib import Path
           import sys
-          for name in ('xcodebuild.log', 'unit-tests.log'):
+          for name in ('xcodebuild.log', 'unit-tests.log', 'test-report.log'):
               path = Path(sys.argv[1]) / name
               if path.exists():
                   errors = [line for line in path.read_text(errors='replace').splitlines()
-                            if 'error:' in line or 'failed' in line.lower()]
+                            if 'error:' in line or ' failed ' in line or 'Error:' in line or 'Traceback' in line]
                   for line in errors[-15:]:
                       safe = line.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
                       print(f'::error title={name}::{safe}')
