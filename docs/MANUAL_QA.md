@@ -2,7 +2,7 @@
 
 All functional cases below are **NOT RUN**. Record tester/date, hardware, iOS version, Xcode version, team/profile, commit or source snapshot, expected result, observed result, and PASS/FAIL per case. Test stationary and safely parked. Do not drive while testing. Any failed required case blocks acceptance of the corresponding behavior.
 
-Unsigned simulator compilation passed in [GitHub Actions run 38645026287](https://github.com/hubianron-cpu/focus-and-drive-ios/actions/runs/38645026287) using Xcode 16.4. That run did not launch the app or complete the device build/sign/install case below. See [the exact build scope and commit](VALIDATION.md).
+Simulator compilation and 25 mock-service coordinator tests passed in [GitHub Actions run 38646708147](https://github.com/hubianron-cpu/focus-and-drive-ios/actions/runs/38646708147) using Xcode 16.4. That run did not launch the iPhone app or complete the device build/sign/install case below. See [the exact build scope and tested commit](VALIDATION.md).
 
 | Case | Steps and expected result |
 | --- | --- |

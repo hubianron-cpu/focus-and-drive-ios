@@ -2,7 +2,7 @@
 
 Minimal, Hebrew/RTL SwiftUI iPhone MVP. The driver grants individual Screen Time authorization, selects WhatsApp in Apple's picker, then manually starts and ends Driving Mode while safely parked. No backend, accounts, analytics, subscriptions, location, motion tracking, notifications, or third-party dependencies.
 
-**Status:** the existing app compiled successfully for iOS Simulator using Xcode 16.4 on GitHub Actions at commit `afc48ea8bb229df86c48c35d22f157922d117e87` ([successful run 38645026287](https://github.com/hubianron-cpu/focus-and-drive-ios/actions/runs/38645026287)). The simulator executable and bundled privacy manifest checks passed. That baseline run performed no app launch, tests, device signing, installation, or iPhone runtime validation. The blocking-coordination changes and new XCTest suite require a new Actions result, recorded in docs/VALIDATION.md when available. Actual WhatsApp blocking is **UNVERIFIED**, not PASS. See [build evidence](docs/VALIDATION.md), [feasibility](docs/FEASIBILITY.md) and [manual QA](docs/MANUAL_QA.md).
+**Status:** the current implementation passed real Xcode 16.4 iOS Simulator compilation and **25 macOS coordinator XCTest cases (0 failures, 0 skipped)** in [Actions run 38646708147](https://github.com/hubianron-cpu/focus-and-drive-ios/actions/runs/38646708147), testing commit `9cecdf5b8049fe78b20dab702065e065145ac98d`. Output/resource checks also passed. No iPhone app launch, device signing, installation, or runtime enforcement was tested. Actual WhatsApp blocking and removal remain **NOT TESTED**, not PASS. See [build/test evidence](docs/VALIDATION.md), [implementation review](docs/BLOCKING_REVIEW.md) and [stationary WhatsApp test](docs/WHATSAPP_DEVICE_TEST.md).
 
 ## Open and install on a friend's Mac
 

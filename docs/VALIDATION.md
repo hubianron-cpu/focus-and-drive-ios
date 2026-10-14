@@ -4,7 +4,7 @@
 
 - Workflow: [iOS Simulator Build](https://github.com/hubianron-cpu/focus-and-drive-ios/actions/workflows/ios-build.yml).
 - Actual run: [38645026287, attempt 1](https://github.com/hubianron-cpu/focus-and-drive-ios/actions/runs/38645026287), triggered by the feature-branch push. Final status: **SUCCESS**; total duration reported by GitHub: 57 seconds.
-- Built commit: `afc48ea8bb229df86c48c35d22f157922d117e87` on `feature/focus-drive-static-qa`. Subsequent documentation-only updates do not change the compiled app or workflow and are excluded by the push path filter.
+- Built commit: `afc48ea8bb229df86c48c35d22f157922d117e87` on `feature/focus-drive-static-qa`. The next documentation-only commit `8df0b80889adf61e0553131983fe84f0b26e496a` did not change that compiled app or workflow. The later implementation follow-up is recorded below.
 - GitHub-hosted `macos-15` runner; installed **Xcode 16.4** selected with `DEVELOPER_DIR`. The toolchain step explicitly checks this version and records Xcode, Swift compiler and SDK versions in `toolchain.log`. The project uses Swift 5 language mode and iOS 16 deployment target.
 - `xcodebuild` compiled the existing FocusDrive scheme in Debug for `generic/platform=iOS Simulator`, using `-sdk iphonesimulator`, `CODE_SIGNING_ALLOWED=NO` and `CODE_SIGNING_REQUIRED=NO`. Its exit status is preserved through `tee` using `pipefail`.
 - **PASS:** project/scheme inspection, Swift compilation and linking (including SwiftUI, FamilyControls and ManagedSettings references), simulator executable existence, generated Info.plist with the `iPhoneSimulator` supported platform, and the bundled privacy manifest with UserDefaults reason `CA92.1`.
@@ -14,7 +14,7 @@
 - No Swift source, application behavior, entitlement or Xcode project changes were needed for this build. Added the workflow and documentation only. Workflow YAML, embedded Bash syntax and actionlint validation passed before the push. Action references are pinned to full commit SHAs, permissions are `contents: read`, checkout credentials are not retained, and no signing credentials are used.
 - GitHub emitted an action-runtime deprecation warning for the pinned v4 actions (automatically run with Node 24) and a macOS runner-capacity notice. Neither prevented this run; no billing or runner-setting changes were made.
 
-## Completed in cloud
+## Initial static review completed in cloud
 
 - Continued the existing MVP in place; no application rebuild from scratch.
 - Reviewed the SwiftUI view, individual authorization, picker, named-store shielding, state persistence, entitlement and both Xcode build configurations.
@@ -50,7 +50,20 @@ The Linux cloud machine has neither Xcode nor the Apple SDK. Actual simulator co
 
 ## Blocking coordination follow-up
 
-Implementation findings before edits are in BLOCKING_REVIEW.md. The updated coordinator has 25 XCTest cases covering valid/invalid Start, End, revocation/rapid reapproval, selection persistence, restart/reconciliation, authorization errors, encoding/load/save failures, partial-apply rollback and cleanup retries. These tests use mock services with the same production coordinator; they are not evidence of Apple shielding. The workflow retains real simulator compilation and output checks and now runs XCTest on macOS, preserves test exit status, uploads JUnit/logs, and rejects missing, skipped, failing or zero-test execution. Follow-up compilation/tests are pending an actual Actions run. Entitlement declarations remain unchanged; physical-device provisioning and enforcement remain NOT TESTED.
+Implementation findings before edits are in BLOCKING_REVIEW.md. The updated coordinator has 25 XCTest cases covering valid/invalid Start, End, revocation/rapid reapproval, selection persistence, restart/reconciliation, authorization errors, encoding/load/save failures, partial-apply rollback and cleanup retries. These tests use mock services with the same production coordinator; they are not evidence of Apple shielding. The workflow retains real simulator compilation and output checks and now runs XCTest on macOS, preserves test exit status, uploads JUnit/logs, and rejects missing, skipped, failing or zero-test execution. Follow-up compilation/tests completed successfully in the rerun recorded below. Entitlement declarations remain unchanged; physical-device provisioning and enforcement remain NOT TESTED.
 
 
 The first follow-up run [38646360776](https://github.com/hubianron-cpu/focus-and-drive-ios/actions/runs/38646360776) passed the actual Xcode simulator build and output inspection but failed the XCTest reporting step. SwiftPM 6.1's sequential XCTest path does not generate `--xunit-output`; its parallel path does. This was confirmed in the official SwiftPM source, and CI now uses two parallel test workers to generate a real report without relaxing test-count/failure checks. The diagnostic matcher was also corrected so a passing test named `testForegroundCanRetryFailedCleanupWithoutReapplying` is not misclassified as a failure solely because of its name. The completed rerun remains required before reporting tests PASS.
+
+
+## Verified blocking coordination rerun — PASS
+
+- [Run 38646708147, attempt 1](https://github.com/hubianron-cpu/focus-and-drive-ios/actions/runs/38646708147): **SUCCESS**, GitHub-reported total duration 1 minute 16 seconds. Tested commit `9cecdf5b8049fe78b20dab702065e065145ac98d`, branch `feature/focus-drive-static-qa`.
+- **PASS — Xcode build:** Xcode 16.4 on GitHub-hosted macos-15; Swift 5 language mode, iOS 16 minimum; generic iOS Simulator app built with signing disabled. All five app Swift files, including the new coordinator and native adapters, compiled and linked. Simulator executable, generated Info.plist and bundled privacy manifest checks passed.
+- **PASS — Automated tests:** macOS XCTest using the actual production `DrivingSession` with mocked services, run by `xcrun swift test --jobs 2 --parallel --num-workers 2 --xunit-output ...`. Actual report: **25 executed, 0 failures/errors, 0 skipped**. CI parsed the XML and checked the executed count against all declared test methods. This is not an Apple framework integration or device enforcement test.
+- **PASS — Artifact:** `ios-simulator-build-38646708147-1` (25.5 KB) uploaded; includes build/toolchain/test logs, Xcode result bundle, JUnit XML, test-report output and summary. Seven-day retention. GitHub-reported SHA-256: `91d9e4d279859a9720fbf0dbb7fba8b3a274978054fe1f62b312880049e1f65d`.
+- **PASS — Review:** checked actual workflow success, each step conclusion and the public test-count notice on GitHub. Full raw artifacts require GitHub sign-in; they were not downloaded to this Linux cloud machine.
+- **PASS — Local checks:** 28 project objects, 5 Swift source build inputs, unchanged entitlement and privacy XML/resource membership; independent OpenStep parse, actionlint, embedded shell syntax, documentation file links and whitespace checks.
+- The first run's test-reporting failure was corrected without disabling tests, weakening assertions or changing application behavior. The final successful run contains that correction.
+- **NOT TESTED:** iPhone app launch, native FamilyControls authorization/picker, actual WhatsApp shield/removal, OS lifecycle enforcement and real-token migration. **BLOCKED:** device provisioning/installation until account-specific signing, Mac/Xcode and physical iPhone access are supplied.
+- Subsequent result-documentation-only commits do not alter the compiled/tested code and do not trigger another run under the workflow's path filter. No merge, deployment, publication or purchase occurred.
