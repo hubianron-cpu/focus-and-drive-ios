@@ -1,0 +1,131 @@
+name: iOS Simulator Build
+
+on:
+  push:
+    branches: [feature/focus-drive-static-qa]
+    paths:
+      - '.github/workflows/ios-build.yml'
+      - 'FocusDrive/**'
+      - 'FocusDrive.xcodeproj/**'
+      - 'scripts/validate_project.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  simulator-build:
+    name: Compile and inspect simulator app (Xcode 16.4)
+    runs-on: macos-15
+    timeout-minutes: 20
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+      CI_LOG_DIR: /tmp/focusdrive-ci
+      CI_DERIVED_DATA: /tmp/FocusDriveDerivedData
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out feature branch snapshot
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Verify installed Xcode and record toolchain
+        run: |
+          set -euo pipefail
+          mkdir -p "$CI_LOG_DIR"
+          test -d "$DEVELOPER_DIR"
+          {
+            xcodebuild -version
+            xcrun swift --version
+            xcodebuild -showsdks
+          } 2>&1 | tee "$CI_LOG_DIR/toolchain.log"
+          xcodebuild -version | grep -Fx 'Xcode 16.4'
+
+      - name: Validate project and list schemes
+        run: |
+          set -euo pipefail
+          python3 scripts/validate_project.py 2>&1 | tee "$CI_LOG_DIR/static-validation.log"
+          xcodebuild -list -project FocusDrive.xcodeproj 2>&1 | tee "$CI_LOG_DIR/project.log"
+
+      - name: Compile existing app for generic iOS Simulator
+        id: build
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project FocusDrive.xcodeproj \
+            -scheme FocusDrive \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$CI_DERIVED_DATA" \
+            -resultBundlePath "$CI_LOG_DIR/Build.xcresult" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build 2>&1 | tee "$CI_LOG_DIR/xcodebuild.log"
+
+      - name: Verify simulator executable and bundled privacy manifest
+        id: output
+        run: |
+          set -euo pipefail
+          app="$CI_DERIVED_DATA/Build/Products/Debug-iphonesimulator/FocusDrive.app"
+          {
+            test -x "$app/FocusDrive"
+            plutil -lint "$app/Info.plist" "$app/PrivacyInfo.xcprivacy"
+            file "$app/FocusDrive"
+            xcrun vtool -show-build "$app/FocusDrive"
+            python3 - "$app" <<'PY'
+          from pathlib import Path
+          import plistlib
+          import sys
+          app = Path(sys.argv[1])
+          info = plistlib.loads((app / 'Info.plist').read_bytes())
+          assert info['CFBundleExecutable'] == 'FocusDrive'
+          assert info['CFBundleSupportedPlatforms'] == ['iPhoneSimulator']
+          privacy = plistlib.loads((app / 'PrivacyInfo.xcprivacy').read_bytes())
+          assert privacy['NSPrivacyAccessedAPITypes'] == [{
+              'NSPrivacyAccessedAPIType': 'NSPrivacyAccessedAPICategoryUserDefaults',
+              'NSPrivacyAccessedAPITypeReasons': ['CA92.1'],
+          }]
+          assert privacy['NSPrivacyTracking'] is False
+          print('PASS: simulator executable, generated Info.plist and bundled privacy manifest.')
+          PY
+          } 2>&1 | tee "$CI_LOG_DIR/build-output.log"
+
+      - name: Report compilation and test availability
+        if: always()
+        env:
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          OUTPUT_OUTCOME: ${{ steps.output.outcome }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$CI_LOG_DIR"
+          {
+            echo '## Focus & Drive simulator compilation'
+            echo "- xcodebuild step: $BUILD_OUTCOME"
+            echo "- Simulator output/resource inspection: $OUTPUT_OUTCOME"
+            echo '- Swift language mode: 5.0; minimum deployment target: iOS 16.0.'
+            echo '- Tests: NOT RUN. This project has no XCTest targets or scheme TestAction.'
+            echo '- No simulator launch, Screen Time authorization or physical-iPhone blocking test was performed.'
+            echo '- An unsigned simulator build does not validate device signing or entitlement approval.'
+            if test -f "$CI_LOG_DIR/toolchain.log"; then
+              echo '### Actual runner toolchain'
+              echo '```text'
+              cat "$CI_LOG_DIR/toolchain.log"
+              echo '```'
+            fi
+          } | tee "$CI_LOG_DIR/summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload build logs and Xcode result bundle
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ios-simulator-build-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.CI_LOG_DIR }}
+          if-no-files-found: warn
+          retention-days: 7

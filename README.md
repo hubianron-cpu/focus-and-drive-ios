@@ -50,3 +50,11 @@ The active UI reflects the app's settings request, **not an independently verifi
 ## Cloud workflow
 
 Use the existing isolated checkout; do not create a worktree unless explicitly requested. Linux supports editing and `python3 scripts/validate_project.py` for project consistency. It cannot run Xcode, Apple's iOS SDK, or meaningful Family Controls integration tests. No cloud server, service, secrets or dependency installation are required. Apple signing credentials stay on the Mac. Do not interpret the cloud structural validator as an iOS build or functional test.
+
+### GitHub Actions simulator build
+
+[iOS Simulator Build](https://github.com/hubianron-cpu/focus-and-drive-ios/actions/workflows/ios-build.yml) uses GitHub's `macos-15` runner with installed Xcode 16.4, its bundled Swift compiler in Swift 5 language mode, and a generic iOS Simulator destination. Relevant project/workflow pushes to `feature/focus-drive-static-qa` trigger a build. It also declares `workflow_dispatch`; GitHub's manual-run UI requires the workflow to be present on the default branch. Do not merge merely to obtain that button.
+
+The workflow disables code signing, preserves the `xcodebuild` exit status while logging, and inspects the built simulator executable, generated Info.plist and bundled privacy manifest. It uploads toolchain/build logs and the Xcode result bundle as artifacts for seven days, including on failure. It uses read-only repository permission, pinned actions and no signing secrets. No compatible automated test targets exist, so tests are explicitly **NOT RUN**.
+
+Only a completed successful Actions run proves simulator compilation for its recorded commit and toolchain. It does not prove app launch, physical-device compilation/signing, Family Controls entitlement approval, authorization, or WhatsApp shielding. Those remain subject to the physical-iPhone checklist.
